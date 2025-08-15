@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LinkUp — plan something, together</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Firebase SDKs (Compat) – optional; app runs without them -->
+  <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore-compat.js"></script>
+
+  <!-- Apple MapKit JS (preferred map) -->
+  <script src="https://cdn.apple-mapkit.com/mk/5.x.x/mapkit.js"></script>
+
+  <!-- Leaflet (fallback map, no key) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Favicon (inline) -->
+  <link rel="icon"
+    href='data:image/svg+xml;utf8,
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+      <rect width="128" height="128" rx="28" fill="%232563eb"/>
+      <text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle"
+            font-family="Arial,Helvetica,sans-serif" font-size="74" fill="white">L</text>
+    </svg>' />
+</head>
+<body>
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="appicon">🔗</div>
+      <h1>LinkUp</h1>
+    </div>
+    <div id="userBox" class="userbox">
+      <button id="signInBtn" class="btn btn-primary">Sign in</button>
+      <button id="signOutBtn" class="btn btn-ghost hide">Sign out</button>
+      <span id="displayName" class="hide"></span>
+      <img id="avatar" class="avatar hide" alt="avatar" />
+    </div>
+  </header>
+
+  <!-- Tabs container -->
+  <main class="container tabs-container">
+    <!-- HOME / FEED -->
+    <section id="tab-home" class="tab active">
+      <div class="stories">
+        <button class="story add" id="quickCreate">＋<span>Create</span></button>
+        <div class="story" data-handle="@la-soccer">
+          <div class="ring"></div><div class="bubble" data-initial="LS"></div><span>@la-soccer</span>
+        </div>
+        <div class="story" data-handle="@hikeclub">
+          <div class="ring"></div><div class="bubble" data-initial="HC"></div><span>@hikeclub</span>
+        </div>
+        <div class="story" data-handle="@openmic">
+          <div class="ring"></div><div class="bubble" data-initial="OM"></div><span>@openmic</span>
+        </div>
+      </div>
+
+      <div class="feed-controls card">
+        <input id="searchInput" class="input" placeholder="Search events, places, tags…" />
+        <select id="dateFilter" class="input">
+          <option value="all">All dates</option>
+          <option value="today">Today</option>
+          <option value="week">This week</option>
+        </select>
+        <select id="sortBy" class="input">
+          <option value="soon">Soonest</option>
+          <option value="hot">Trending</option>
+          <option value="new">Newest</option>
+        </select>
+      </div>
+
+      <ul id="eventsList" class="feed"></ul>
+      <div id="emptyFeed" class="empty hide">
+        <div>Nothing yet. Tap <strong>＋ Create</strong> to add your first event.</div>
+      </div>
+    </section>
+
+    <!-- CREATE -->
+    <section id="tab-create" class="tab">
+      <div class="card">
+        <h2>Create an Event</h2>
+        <form id="createEventForm" class="form-grid">
+          <div class="row form-span-2">
+            <label>Title</label>
+            <input id="eventTitle" class="input" placeholder="e.g., Pick-up Soccer" required />
+          </div>
+          <div class="row"><label>Date</label><input id="eventDate" class="input" type="date" required /></div>
+          <div class="row"><label>Time</label><input id="eventTime" class="input" type="time" required /></div>
+          <div class="row form-span-2"><label>Location</label><input id="eventLocation" class="input" placeholder="e.g., UCLA Court 3" /></div>
+          <div class="row"><label>Latitude</label><input id="lat" class="input" type="number" step="any" placeholder="34.07" /></div>
+          <div class="row"><label>Longitude</label><input id="lng" class="input" type="number" step="any" placeholder="-118.44" /></div>
+          <div class="row form-span-2"><button type="button" id="useMyLocation" class="btn">Use current location</button></div>
+          <div class="row form-span-2"><label>Description</label><textarea id="eventDescription" class="input" rows="3" placeholder="What’s the vibe?"></textarea></div>
+          <div class="row"><label>Price (USD)</label><input id="price" class="input" type="number" min="0" step="0.01" placeholder="0.00" /></div>
+          <div class="row"><label>Ticket/Payment URL</label><input id="ticketUrl" class="input" type="url" placeholder="https://buy.stripe.com/..." /></div>
+          <div class="row form-span-2"><label>Cover Image URL (optional)</label><input id="coverUrl" class="input" type="url" placeholder="https://images.unsplash.com/…" /></div>
+          <div class="row form-span-2"><button type="submit" class="btn btn-primary">Create Event</button></div>
+        </form>
+      </div>
+    </section>
+
+    <!-- MAP -->
+    <section id="tab-map" class="tab">
+      <div class="card">
+        <h2>Map</h2>
+        <div id="map" class="map"></div>
+        <p class="muted">Apple Maps loads automatically if a valid MapKit JS token is present; otherwise, Leaflet is used.</p>
+      </div>
+    </section>
+
+    <!-- FRIENDS -->
+    <section id="tab-friends" class="tab">
+      <div class="card">
+        <h2>Friends</h2>
+        <form id="addFriendForm" class="form-inline">
+          <input id="friendHandle" class="input" placeholder="@yourfriend" required />
+          <button type="submit" class="btn">Add</button>
+        </form>
+        <ul id="friendsList" class="list"></ul>
+      </div>
+    </section>
+
+    <!-- PROFILE -->
+    <section id="tab-profile" class="tab">
+      <div class="card">
+        <h2>Profile</h2>
+        <div id="profileInfo" class="profile"></div>
+        <div class="stats">
+          <div class="stat"><div id="statMyEvents" class="stat-num">0</div><div class="stat-label">My events</div></div>
+          <div class="stat"><div id="statRsvp" class="stat-num">0</div><div class="stat-label">RSVPs</div></div>
+          <div class="stat"><div id="statEarnings" class="stat-num">$0</div><div class="stat-label">Earnings</div></div>
+        </div>
+        <div class="rowline gap">
+          <button id="clearLocal" class="btn">Clear local data</button>
+          <button id="howToMonetize" class="btn btn-primary">Monetize my event</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>My Events</h3>
+        <ul id="myEventsList" class="list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- Tab bar -->
+  <nav class="tabbar">
+    <button class="tabbtn active" data-tab="home">🏠<span>Home</span></button>
+    <button class="tabbtn" data-tab="create">➕<span>Create</span></button>
+    <button class="tabbtn" data-tab="map">🗺️<span>Map</span></button>
+    <button class="tabbtn" data-tab="friends">👥<span>Friends</span></button>
+    <button class="tabbtn" data-tab="profile">👤<span>Profile</span></button>
+  </nav>
+
+  <!-- Modals -->
+  <dialog id="shareDialog" class="modal">
+    <div class="modal-card">
+      <h3>Share</h3>
+      <input id="shareUrl" class="input" readonly />
+      <div class="rowline gap">
+        <button id="copyShare" class="btn btn-primary">Copy link</button>
+        <button id="closeShare" class="btn">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="monetizeDialog" class="modal">
+    <div class="modal-card">
+      <h3>Monetize with Stripe</h3>
+      <ol class="steps">
+        <li>Create a <strong>Stripe Payment Link</strong> (one-time or recurring price).</li>
+        <li>Paste the URL into your event’s <em>Ticket/Payment URL</em>.</li>
+        <li>We’ll show a “Buy Ticket” button with the price.</li>
+      </ol>
+      <p class="muted">Later: upgrade to Stripe Checkout + Firebase Functions for on-platform payouts, fees, and receipts.</p>
+      <button id="closeMonetize" class="btn btn-primary">Got it</button>
+    </div>
+  </dialog>
+
+  <!-- Order matters: secrets before app -->
+  <script src="secrets.js"></script>
+  <script src="firebase.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+
